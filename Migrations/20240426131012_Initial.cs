@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -17,12 +16,23 @@ namespace LevServer.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Genre = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    RelseaDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    PosterURL = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Rating = table.Column<double>(type: "float", nullable: false),
+                    Year = table.Column<int>(type: "int", nullable: true),
+                    ImdbID = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Time = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Movies", x => x.Id);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Movies_ImdbID",
+                table: "Movies",
+                column: "ImdbID",
+                unique: true,
+                filter: "[ImdbID] IS NOT NULL");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

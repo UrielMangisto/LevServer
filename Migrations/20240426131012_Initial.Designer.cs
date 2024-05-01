@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LevServer.Migrations
 {
     [DbContext(typeof(MovieContext))]
-    [Migration("20240317202608_Initial1")]
-    partial class Initial1
+    [Migration("20240426131012_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -35,13 +35,29 @@ namespace LevServer.Migrations
                     b.Property<string>("Genre")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("RelseaDate")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("ImdbID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("PosterURL")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Rating")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("Time")
+                        .HasColumnType("int");
 
                     b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("Year")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ImdbID")
+                        .IsUnique()
+                        .HasFilter("[ImdbID] IS NOT NULL");
 
                     b.ToTable("Movies");
                 });
