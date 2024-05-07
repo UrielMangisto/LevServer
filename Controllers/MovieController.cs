@@ -1,13 +1,16 @@
 ﻿using LevServer.models;
 using LevServer.Transformations;
+using LevServer.CQRS.Implemententions;
+using LevServer.CQRS.Interfaces;
+using LevServer.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
 using Microsoft.Data.SqlClient.DataClassification;
-using System.Net.Http;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using LevServer.Services;
+using System.Net.Http;
+using System.Windows.Input;
+using LevServer.models.CQRS.Implemententions;
 
 namespace LevServer.Controllers
 {
@@ -16,61 +19,58 @@ namespace LevServer.Controllers
     public class MovieController : ControllerBase
     {
         private readonly MovieContext _dbContext;
-        private readonly HttpClient _httpClient;
+        private readonly ICommands _commands;
+        private readonly IQueries _queries;
 
         public MovieController(MovieContext dbContext)
         {
             _dbContext = dbContext;
-            _httpClient = new HttpClient();
+            _commands = new Commands(_dbContext);
+            _queries = new Queries(_dbContext);
         }
 
         //GET: api/Movie (read all)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Movie>>> GetMovies()
         {
-            if(_dbContext.Movies == null)
-            {
-                return NotFound();
-            }
-            //return await _dbContext.Movies.ToListAsync();
-            return Ok(await _dbContext.Movies.ToListAsync());
+            return Ok(await _queries.GetMoviesAsync());
         }
 
         //GET: api/Movie/5 (read)
         [HttpGet("{id}")]
         public async Task<ActionResult<Movie>> GetMovie(int id)
         {
-            if (_dbContext.Movies == null)
-            {
-                return NotFound();
-            }
-            var movie = await _dbContext.Movies.FindAsync(id);
+            var movie = await _queries.GetMovieByIdAsync(id);
 
             if (movie == null)
             {
                 return NotFound();
             }
 
-            return movie;
+            return Ok(movie);
         }
 
         //GET: api/Movie/search/tt0050083 (read)
         [HttpGet("search/{imdbID}")]
         public async Task<ActionResult<Movie>> GetMovie(string imdbID)
         {
-            var movie = await Services.OmdbApiService.GetMovieByIDAsync(imdbID);
-
-            if (movie == null)
+            var dbmovie = await _queries.GetMovieByImdbIdAsync(imdbID);
+            if (dbmovie == null)
             {
-                return BadRequest();
+                var movie = await Services.OmdbApiService.GetMovieByIDAsync(imdbID);
+
+                if (movie == null)
+                {
+                    return BadRequest();
+                }
+                var convertor = new JsonToMovie();
+                var movieDto = convertor.GetMovieFromJson(movie);
+                return Ok(movieDto);
             }
-            var convertor = new JsonToMovie();
-            var movieDto = convertor.GetMovieFromJson(movie);
-            //return Ok(movie);
-            return Ok(movieDto);
+            return Ok(dbmovie);
         }
 
-        // GET - /api/Movies/search/?s=[SEARCH_TERM]&y=[YEAR] (read)
+        // GET - /api/Movies/search/?s=supermab&y=2016 (read)
         [HttpGet("search")]
         public async Task<ActionResult<Movie>> GetMovie(string s, int? y = null)
         {
@@ -84,8 +84,7 @@ namespace LevServer.Controllers
         [HttpPost]
         public async Task<ActionResult<Movie>> PostMovie(string imdbID)
         {
-            // check if the movie is already in the DB
-            var existingMovie = await _dbContext.Movies.FirstOrDefaultAsync(m => m.ImdbID == imdbID);
+            var existingMovie = await _queries.GetMovieByImdbIdAsync(imdbID);
 
             if (existingMovie != null)
             {
@@ -99,66 +98,30 @@ namespace LevServer.Controllers
                 return BadRequest();
             }
 
-            // TODO: JsonToMovie
             var convertor = new JsonToMovie();
             var movieDto = convertor.GetMovieFromJson(movie);
-            _dbContext.Movies.Add(movieDto);
-            await _dbContext.SaveChangesAsync();
+
+            if (movieDto == null) 
+            {
+                return BadRequest();
+            }
+
+            await _commands.AddMovieAsync(movieDto);
 
             return Ok(movieDto);
-        }
-
-        ////PUT: api/Movie/5 (update)
-        //[HttpPut("{id}")]
-        //public async Task<IActionResult> PutMovie (int id, Movie movie)
-        //{
-        //    if(id != movie.Id)
-        //    {
-        //        return BadRequest();
-        //    }
-        //    _dbContext.Entry(movie).State = EntityState.Modified;
-
-        //    try
-        //    {
-        //        await _dbContext.SaveChangesAsync();
-        //    }catch (DbUpdateConcurrencyException) 
-        //    {
-        //        if (!MovieExists(id))
-        //        {
-        //            return NotFound();
-        //        }
-        //        else
-        //        {
-        //            throw;
-        //        }
-        //    }
-        //    return NoContent();
-        //}
-        
+        }        
 
         //DELETE: api/Movie/5 (delete)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMovie(int id)
         {
-            if(_dbContext.Movies == null)
-            {
-                return NotFound();
-            }
-            var movie = await _dbContext.Movies.FindAsync(id);
+            var movie = await _queries.GetMovieByIdAsync(id);
             if(movie == null)
             {
                 return NotFound();
             }
-            _dbContext.Movies.Remove(movie);
-            await _dbContext.SaveChangesAsync();
+            await _commands.DeleteMovieAsync(movie);
             return NoContent();
         }
-
-        private bool MovieExists(int id)
-        {
-            return (_dbContext.Movies?.Any(x => x.Id == id)).GetValueOrDefault();
-        }
-
-        
     }
 }
