@@ -123,5 +123,16 @@ namespace LevServer.Controllers
             await _commands.DeleteMovieAsync(movie);
             return NoContent();
         }
+        //PUT: api/Movie/5 (update)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutMovie(int id, Movie movie)
+        {
+            if (id != movie.Id)
+            {
+                return BadRequest();
+            }
+            await _commands.UpdateMovieAsync(movie);
+            return NoContent();
+        }
     }
 }
